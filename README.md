@@ -1,18 +1,20 @@
-# Group Allocation system by Team *enter team name here*
+# Group Allocation system by Team Kangaroo
+
 A group allocation system developed for the Small Group Project assignment of the Software Engineering Group Project module at King's College London.
 
 ## Team members
-The members of the team are:
-- *enter full name 1 here*
-- *enter full name 2 here*
-- *enter full name 3 here*
-- *enter full name 4 here*
-- *enter full name 5 here*
+
+The members of the team are, in alphabetical order:
+
+- Acelya Oksuz
+- Harry Allen
+- Maylin Kottarathil
+- Ssuhaan Jaiin
+- Vivash Pitroda
 
 ## Deployment
 
-The system has been deployed at [*insert url here*](*url*)
-
+The system has been deployed at [_insert url here_](*url*)
 
 ## Getting started
 
@@ -33,7 +35,7 @@ Run `python manage.py unseed` to delete all users again.
 ## Tests
 
 Run all tests with `python manage.py test`. You can also run a part of them,
-for example `python manage.py test allocations.tests.views`. 
+for example `python manage.py test allocations.tests.views`.
 
 [Coverage.py](https://coverage.readthedocs.io/) measures which parts of the
 code the tests run. Its settings are in `.coveragerc`.
