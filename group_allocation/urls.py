@@ -16,4 +16,7 @@ urlpatterns = [
     path('users/<int:user_id>/', views.user_detail, name='user_detail'),
     path('users/<int:user_id>/update/', views.user_update, name='user_update'),
     path('users/<int:user_id>/delete/', views.user_delete, name='user_delete'),
+
+    #Export URL
+    path('export_allocation/', views.export_allocation, name='export_allocation'),
 ]

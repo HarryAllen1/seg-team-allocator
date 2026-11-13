@@ -15,3 +15,5 @@ from .user_management_views import (
     user_list,
     user_update,
 )
+
+from .export_views import export_allocation
