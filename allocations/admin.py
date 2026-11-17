@@ -6,9 +6,9 @@ from .models import Team, User
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    fieldsets = UserAdmin.fieldsets + (
+    fieldsets = list(UserAdmin.fieldsets or ()) + [
         ('Allocation profile', {'fields': ('gender', 'ethnicity', 'c_score')}),
-    )
+    ]
     add_fieldsets = UserAdmin.add_fieldsets + (
         ('Allocation profile', {'fields': ('gender', 'ethnicity', 'c_score')}),
     )
