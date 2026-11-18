@@ -81,3 +81,21 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
     class Meta:
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB is far more than ~300 students need
+class CohortUploadForm(BootstrapFormMixin, forms.Form):
+    """Form for a logged in user to upload a cohort CSV file."""
+
+    file = forms.FileField(
+        label='Cohort CSV file',
+        help_text='One row per student. Required columns: first_name, last_name, email.',
+        widget=forms.ClearableFileInput(attrs={'accept': '.csv,text/csv'}),
+    )
+
+    def clean_file(self):
+        upload = self.cleaned_data['file']
+        if not upload.name.lower().endswith('.csv'):
+            raise forms.ValidationError('Please upload a file with a .csv extension.')
+        if upload.size > MAX_UPLOAD_BYTES:
+            raise forms.ValidationError('The file is larger than 2 MB. Check that it is the right file.')
+        return upload
