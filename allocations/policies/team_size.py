@@ -20,3 +20,15 @@ class TeamSizePolicy(Policy):
                 difference = size - self.max_size
                 return Violation(team_name, f"{team_name} has {size} students; Teams must have no more than {self.max_size}", difference)
         return None
+
+    def is_feasible(self, student_count):
+        """Return True if student_count students can be split into teams
+        within the constraints of the team size"""
+
+        if student_count == 0:
+            return True
+        max_teams = student_count // self.min_size
+        for team_count in range(1, max_teams + 1):
+            if student_count >= (team_count*self.min_size) and student_count <= (team_count*self.max_size):
+                return True
+        return False

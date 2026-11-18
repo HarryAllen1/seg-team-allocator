@@ -81,3 +81,30 @@ class TeamSizePolicyTest(TestCase):
 
         self.assertTrue(result.is_hard)
         self.assertEqual(result.policy_name, "Team size")
+
+
+class TeamSizeFeasibilityTest(TestCase):
+
+    def setUp(self):
+        self.policy = TeamSizePolicy(min_size=4, max_size=5)
+
+    def test_nine_students_is_feasible(self):
+        self.assertTrue(self.policy.is_feasible(9))
+
+    def test_eight_students_is_feasible(self):
+        self.assertTrue(self.policy.is_feasible(8))
+
+    def test_thirteen_students_is_feasible(self):
+        self.assertTrue(self.policy.is_feasible(13))
+
+    def test_three_hundred_students_is_feasible(self):
+        self.assertTrue(self.policy.is_feasible(300))
+
+    def test_seven_students_is_infeasible(self):
+        self.assertFalse(self.policy.is_feasible(7))
+
+    def test_eleven_students_is_infeasible(self):
+        self.assertFalse(self.policy.is_feasible(11))
+
+    def test_zero_students_is_feasible(self):
+        self.assertTrue(self.policy.is_feasible(0))
