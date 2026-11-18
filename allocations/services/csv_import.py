@@ -1,8 +1,6 @@
 """Cohort CSV parsing and validation.
 
-This module is deliberately free of Django and database code: it takes the raw
-bytes of an uploaded file and returns an ``ImportResult``. Saving to the
-database is a separate step (see ``save_students`` in ``cohort_store.py``).
+Saving to the database is a separate step (see ``save_students`` in ``cohort_store.py``).
 
 Design decisions (copy these into your README / report):
 
@@ -94,7 +92,8 @@ class ImportResult:
     def is_valid(self) -> bool:
         return not self.errors
 
-
+# Decodes the bytes, rejects an empty file, picks the separator, finds the header (the first non-blank line), 
+# validates it, validates every row, and adds an error if there were no student rows.
 def parse_cohort_csv(raw: bytes | str) -> ImportResult:
     """Parse and validate a cohort file. Never raises for bad content."""
     result = ImportResult()
@@ -127,7 +126,7 @@ def parse_cohort_csv(raw: bytes | str) -> ImportResult:
 # Decoding and header handling
 # --------------------------------------------------------------------------
 
-
+# Decodes as UTF-8 and strips the invisible marker Excel adds at the start.
 def _decode(raw: bytes | str, result: ImportResult) -> str | None:
     if isinstance(raw, str):
         return raw.lstrip('﻿')
@@ -142,7 +141,8 @@ def _decode(raw: bytes | str, result: ImportResult) -> str | None:
         )
         return None
 
-
+# Counts commas, semicolons and tabs in the first non-blank line and uses the most common one (comma if none).
+# Note: Not sure if we need this or not
 def _detect_dialect(text: str):
     """Comma by default; also accept semicolons or tabs (common from European Excel)."""
     first_line = next((ln for ln in text.splitlines() if ln.strip()), '')
@@ -154,7 +154,8 @@ def _detect_dialect(text: str):
 
     return _Dialect
 
-
+# Trims a column name and removes a stray marker character. Known columns are lower-cased and aliases are mapped to c-score.
+# Other column names keep their original case.
 def _normalise_header(name: str) -> str:
     cleaned = name.strip().lstrip('﻿')
     lowered = cleaned.lower()
@@ -162,7 +163,8 @@ def _normalise_header(name: str) -> str:
         return lowered
     return HEADER_ALIASES.get(lowered, cleaned)
 
-
+# Errors for an empty column name, a repeated name (ignoring case) and missing required columns.
+# Warnings for a c-score alias and for missing optional columns. (Since they aren't required)
 def _validate_header(header: list[str], result: ImportResult) -> list[str] | None:
     columns = [_normalise_header(h) for h in header]
     ok = True
@@ -208,7 +210,10 @@ def _validate_header(header: list[str], result: ImportResult) -> list[str] | Non
 # Row handling
 # --------------------------------------------------------------------------
 
-
+# Loops over the rows. Skips blank lines and counts them. A row with the wrong number of values is an error.
+# Otherwise it checks names, email, gender, ethnicity and c-score.
+# It builds a StudentRow only if the row had no new errors, so every problem is reported but no bad student is kept.
+# Note: What to do (maybe a fix?) with the reported rows is to be dcided.
 def _validate_rows(data_rows: list[list[str]], first_row_number: int, columns: list[str], result: ImportResult) -> None:
     first_row_of_email: dict[str, int] = {}
     blank_lines = 0
@@ -267,7 +272,7 @@ def _validate_rows(data_rows: list[list[str]], first_row_number: int, columns: l
 
     _summary_warnings(result, blank_lines, lowered_emails, blank_defaults)
 
-
+# Checks a name column: error if blank or longer than 50 characters.
 def _required_text(values: dict, column: str, row: int, result: ImportResult) -> str:
     value = values[column]
     if not value:
@@ -278,7 +283,9 @@ def _required_text(values: dict, column: str, row: int, result: ImportResult) ->
         )
     return value
 
-
+# Checks the email: error if blank, not email-shaped, longer than 150 characters, or already seen.
+# 'seen' maps each email to the first row that used it, so a duplicate error says which row.
+# Returns the lower-cased email, or an empty string on error.
 def _email(raw: str, row: int, seen: dict[str, int], result: ImportResult) -> str:
     if not raw:
         result.errors.append(
@@ -302,14 +309,16 @@ def _email(raw: str, row: int, seen: dict[str, int], result: ImportResult) -> st
     seen[email] = row
     return email
 
-
+# Converts text to a whole number, or returns None if it is not one.
 def _int_or_none(text: str) -> int | None:
     try:
         return int(text)
     except ValueError:
         return None
 
-
+# Reads gender or ethnicity. Blank or missing gives 0.
+# Accepts a plain code ('2') or the labelled form ('2: Man'): only the number before the colon is used.
+# Errors if the number is not in the allowed set; returns 0 in that case.
 def _code(values: dict, column: str, allowed: dict[int, str], row: int, result: ImportResult) -> int:
     """Read a coded column (gender, ethnicity). Missing/blank means 0.
 
@@ -329,7 +338,7 @@ def _code(values: dict, column: str, allowed: dict[int, str], row: int, result: 
         return 0
     return number
 
-
+# Reads the c-score. Blank gives None. Errors if it is not a whole number (so 55.5 is rejected) or is outside 0-100.
 def _c_score(values: dict, row: int, result: ImportResult) -> int | None:
     text = values.get(C_SCORE_COLUMN, '')
     if text == '':
@@ -349,7 +358,8 @@ def _c_score(values: dict, row: int, result: ImportResult) -> int | None:
         return None
     return number
 
-
+# Adds the summary notes: how many blank lines were skipped, how many emails were lower-cased, and how many blank gender,
+# ethnicity and c-score values were defaulted.
 def _summary_warnings(result: ImportResult, blank_lines: int, lowered_emails: int, blank_defaults: dict) -> None:
     if blank_lines:
         result.warnings.append(ImportIssue(f'{blank_lines} blank line(s) were skipped.'))

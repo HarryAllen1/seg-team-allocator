@@ -19,12 +19,13 @@ def save_students(result: ImportResult) -> tuple[int, int] | None:
     Students are users of the application. They are matched on email address,
     ignoring case: a student whose email is already in the database is updated
     from the file, any other student gets a new account with an unusable
-    password (students do not log in). Users who are not in the file are never
-    changed or deleted.
+    password (students do not log in) (Note: unless we do the student can self-assign thing).
+    Users who are not in the file are never changed or deleted.
 
     The import is all or nothing. Staff accounts must never be overwritten by a
     cohort file, so an email that belongs to a staff member (or a username that
-    another account already uses) is added to ``result.errors``, and then
+    another account already uses) is added to ``result.errors`` 
+    (Note: a way should be found to maybe fix the errors?), and then
     nothing is saved and None is returned. Otherwise returns a tuple with the
     number of users created and updated.
     """
@@ -41,8 +42,10 @@ def save_students(result: ImportResult) -> tuple[int, int] | None:
 
     for row in result.students:
         user = existing.get(row.email)
+        # Adds an error and saves nothing if a file email belongs to a staff or superuser account
         if user is not None and (user.is_staff or user.is_superuser):
             message = f"'{row.email}' belongs to a staff account, which a cohort file cannot change."
+        # "                            "  if a new student's email is already another account's username
         elif user is None and row.email in usernames_in_use:
             message = f"The username '{row.email}' is already used by another account."
         else:
@@ -51,6 +54,7 @@ def save_students(result: ImportResult) -> tuple[int, int] | None:
     if not result.is_valid:
         return None
 
+    # Builds new users (email as username, unusable password, because students do not log in (Note: yet)) and updates existing ones
     to_create, to_update = [], []
     for row in result.students:
         user = existing.get(row.email)

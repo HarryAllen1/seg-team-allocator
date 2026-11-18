@@ -82,6 +82,8 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
         model = User
         fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
 
+# Rejects a name that does not end in .csv and a file larger than 2 MB, with a readable message
+# (Note: File size is not too necessary and may be removed)
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB is far more than ~300 students need
 class CohortUploadForm(BootstrapFormMixin, forms.Form):
     """Form for a logged in user to upload a cohort CSV file."""
