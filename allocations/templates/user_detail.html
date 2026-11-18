@@ -13,6 +13,13 @@
     <dd>{{ shown_user.email }}</dd>
     <dt>Superuser</dt>
     <dd>{{ shown_user.is_superuser|yesno:"Yes,No" }}</dd>
+    <dt>Ethnicity</dt>
+    <dd>{{ shown_user.get_ethnicity_display }}</dd>
+    <dt>Gender</dt>
+    <dd>{{ shown_user.get_gender_display }}</dd>
+    <dt>C score</dt>
+    <dd>{{ shown_user.c_score }}</dd>
+
   </dl>
   <a class="btn btn-primary" href="{% url 'user_update' shown_user.id %}">Update</a>
   <a class="btn btn-danger" href="{% url 'user_delete' shown_user.id %}">Delete</a>

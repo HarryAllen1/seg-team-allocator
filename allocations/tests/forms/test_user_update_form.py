@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.test import TestCase
 
@@ -16,13 +18,17 @@ class UserUpdateFormTestCase(TestCase):
             'last_name': 'Dough',
             'email': 'johnny@example.org',
             'is_superuser': 'on',
+            'gender': '1',
+            'ethnicity': '1',
+            'c_score': '67',
         }
 
     def test_form_has_the_necessary_fields(self):
         form = UserUpdateForm(instance=self.user)
         self.assertEqual(
             list(form.fields),
-            ['username', 'first_name', 'last_name', 'email', 'is_superuser'],
+            ['username', 'first_name', 'last_name', 'email', 'is_superuser',
+             'gender', 'ethnicity', 'c_score'],
         )
 
     def test_superuser_field_is_a_checkbox(self):
@@ -37,6 +43,9 @@ class UserUpdateFormTestCase(TestCase):
         self.assertEqual(form['last_name'].value(), 'Doe')
         self.assertEqual(form['email'].value(), 'johndoe@example.org')
         self.assertFalse(form['is_superuser'].value())
+        self.assertEqual(form['gender'].value(), 0)
+        self.assertEqual(form['ethnicity'].value(), 0)
+        self.assertIsNone(form['c_score'].value())
 
     def test_valid_form(self):
         form = UserUpdateForm(self.data, instance=self.user)
@@ -70,6 +79,9 @@ class UserUpdateFormTestCase(TestCase):
         self.assertEqual(self.user.last_name, 'Dough')
         self.assertEqual(self.user.email, 'johnny@example.org')
         self.assertTrue(self.user.is_superuser)
+        self.assertEqual(self.user.gender, 1)
+        self.assertEqual(self.user.ethnicity, 1)
+        self.assertEqual(self.user.c_score, Decimal('67'))
 
     def test_save_can_remove_superuser_status(self):
         self.user.is_superuser = True

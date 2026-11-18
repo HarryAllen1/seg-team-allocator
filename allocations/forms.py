@@ -63,7 +63,16 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+        fields = [
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'is_superuser',
+            'gender',
+            'ethnicity',
+            'c_score',
+        ]
 
     def validate_passwords(self, password1_field_name='password', password2_field_name='password_confirmation'):
         super().validate_passwords(password1_field_name, password2_field_name)
@@ -78,6 +87,32 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
     """Form for a superuser to update the details of any user."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ('gender', 'ethnicity', 'c_score'):
+            self.fields[field_name].required = False
+
+    def clean_gender(self):
+        value = self.cleaned_data.get('gender')
+        return self.instance.gender if value is None else value
+
+    def clean_ethnicity(self):
+        value = self.cleaned_data.get('ethnicity')
+        return self.instance.ethnicity if value is None else value
+
+    def clean_c_score(self):
+        value = self.cleaned_data.get('c_score')
+        return self.instance.c_score if value is None else value
+
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+        fields = [
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'is_superuser',
+            'gender',
+            'ethnicity',
+            'c_score',
+        ]
