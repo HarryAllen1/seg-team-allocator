@@ -135,7 +135,7 @@ def team_cost(team, options):
     high = 0
     if options.use_c_score:
         spread = max(student.c_score for student in team) - min(student.c_score for student in team)
-        excess = max(Decimal('0'), spread - options.c_score_target)
+        excess = max(Decimal(0), spread - options.c_score_target)
         high += size * int(excess * 100)
     if options.use_gender:
         high += 10000 * len(gender_issues(team))
