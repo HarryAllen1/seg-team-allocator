@@ -140,7 +140,7 @@ class AllocationTests(TestCase):
 
     def test_conflicting_high_tier_preferences_are_reported(self):
         cohort = students(4, gender='man')
-        cohort[0] = replace(cohort[0], gender='woman', c_score=Decimal('10'))
+        cohort[0] = replace(cohort[0], gender='woman', c_score=Decimal(10))
         result = allocate_students(cohort)
         self.assertEqual(len(result.warnings), 2)
 
