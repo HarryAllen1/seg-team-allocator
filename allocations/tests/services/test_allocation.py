@@ -73,7 +73,7 @@ class AllocationTests(TestCase):
 
     def test_unavoidable_mark_spread_is_returned_as_warning(self):
         cohort = students(4)
-        cohort[-1] = replace(cohort[-1], c_score=Decimal('100'))
+        cohort[-1] = replace(cohort[-1], c_score=Decimal(100))
         result = allocate_students(cohort)
         self.assertIn('spread 40 exceeds the target 10', result.warnings[0])
         self.assertTrue(result.metrics[0]['c_score_exceeded'])
