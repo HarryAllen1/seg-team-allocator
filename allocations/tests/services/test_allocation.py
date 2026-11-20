@@ -59,9 +59,11 @@ class AllocationTests(TestCase):
     def test_feasibility_is_checked_before_improvement(self):
         cohort = students(11)
         cohort = [replace(s, committed=index < 8) for index, s in enumerate(cohort)]
-        with patch('allocations.services.allocation._improve_teams') as improve:
-            with self.assertRaisesRegex(AllocationError, 'commitment No group has 3'):
-                allocate_students(cohort)
+        with (
+            patch('allocations.services.allocation._improve_teams') as improve,
+            self.assertRaisesRegex(AllocationError, 'commitment No group has 3'),
+        ):
+            allocate_students(cohort)
         improve.assert_not_called()
 
     def test_mark_bands_respect_target_when_possible(self):

@@ -125,9 +125,8 @@ def gender_issues(team):
     for student in team:
         if student.gender in ('woman', 'man') and counts[student.gender] == 1:
             affected.append(student.email)
-        elif student.gender == 'other':
-            if counts['other'] == 1 and len(counts) < 2:
-                affected.append(student.email)
+        elif student.gender == 'other' and counts['other'] == 1 and len(counts) < 2:
+            affected.append(student.email)
     return affected
 
 
