@@ -149,7 +149,7 @@ class AllocationTests(TestCase):
         cohort = [replace(s, c_score=Decimal(0 if index < 4 else 100),
                           workload='reduce' if index % 2 else 'exceed',
                           ethnicity='white' if index < 4 else 'asian') for index, s in enumerate(cohort)]
-        result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal('0')))
+        result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal(0)))
         self.assertTrue(all(m['high_penalty'] == 0 for m in result.metrics))
         self.assertTrue(all(len({s.ethnicity for s in team}) == 1 for team in result.teams))
 
