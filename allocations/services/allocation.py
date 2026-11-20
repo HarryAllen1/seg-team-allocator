@@ -33,7 +33,7 @@ class Student:
 
 @dataclass(frozen=True)
 class AllocationOptions:
-    c_score_target: Decimal = Decimal('10')
+    c_score_target: Decimal = Decimal(10)
     use_gender: bool = True
     use_workload: bool = True
     use_ethnicity: bool = True
