@@ -102,6 +102,7 @@ def validate_students(students):
         email = student.email
         if not isinstance(email, str) or len(email.strip()) > 254 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email.strip()):
             raise AllocationError(f'Student {index}: provide a valid email address.')
+        # check for duplicates after normalising so case and spaces cannot hide them
         email = email.strip().casefold()
         if email in emails:
             raise AllocationError(f'Duplicate student email: {email}.')
@@ -136,6 +137,7 @@ def team_cost(team, options):
     if options.use_c_score:
         spread = max(student.c_score for student in team) - min(student.c_score for student in team)
         excess = max(Decimal(0), spread - options.c_score_target)
+        # scale the mark penalty so hundredths of a mark count in the integer score
         high += size * int(excess * 100)
     if options.use_gender:
         high += 10000 * len(gender_issues(team))
@@ -153,6 +155,7 @@ def team_cost(team, options):
         pairs = list(combinations([s.ethnicity for s in team if s.ethnicity], 2))
         if pairs:
             low += size * Fraction(sum(a == b for a, b in pairs), len(pairs))
+    # the lower tier only decides between equal higher tier costs
     return high, low
 
 
@@ -180,6 +183,7 @@ def team_metrics(team, options):
 
 def _initial_teams(students, options):
     ordered = sorted(students, key=lambda student: (student.c_score if options.use_c_score else 0, student.email))
+    # for the first n students keep the best cost and size of the last team
     costs = [None] * (len(ordered) + 1)
     previous = [None] * len(costs)
     costs[0] = (0, 0)
@@ -213,7 +217,7 @@ def _improve_teams(teams, options):
     checks = 0
     for _ in range(MAX_SWAP_PASSES):
         changed = False
-        # visit nearby mark bands first so a bounded search reaches every team
+        # try nearby mark bands first because distant swaps can widen the score spread
         for distance in range(1, len(teams)):
             for left in range(len(teams) - distance):
                 right = left + distance
@@ -222,6 +226,7 @@ def _improve_teams(teams, options):
                         if checks >= MAX_SWAP_CHECKS:
                             return teams, True
                         checks += 1
+                        # only the two teams in the swap can change the total cost
                         old = (costs[left][0] + costs[right][0], costs[left][1] + costs[right][1])
                         teams[left][a], teams[right][b] = teams[right][b], teams[left][a]
                         left_cost = team_cost(teams[left], options)
@@ -248,6 +253,7 @@ def allocate_students(students, options=AllocationOptions()):
     teams = []
     search_limited = False
     initial_groups = []
+    # check every group can form teams before beginning to work on swaps
     if options.commitment_mode == 'hard':
         for committed in (True, False):
             group = [student for student in students if student.committed == committed]
