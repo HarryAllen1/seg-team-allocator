@@ -50,22 +50,3 @@ Open `htmlcov/index.html` in a browser to see exactly which lines and
 branches are not tested. The report leaves out code that is not ours or that
 is not worth testing, such as the virtual environment, migrations, settings
 and the tests themselves.
-
-# Algorithm allocation
-Worked on the design, core allocator and respective tests.
-
-## How it works
-
-The allocator takes Student records and AllocationOptions, checks the inputs in memory and returns teams, measurements, warnings and search-limit status. It checks duplicate identifiers and the values needed based on the criteria.
-
-Default team size is 4-5, and commitment is matched. Team size can be set from 1–10. Commitment can be hard matching, soft matching or ignored. Gender, attainment, workload and ethnicity can all be toggled.
-
-The allocator asks which team arrangement would be better overall for gender and C-score, and chooses the result. If they are equally as good, then the allocator asks which one is better for workload and ethnicity, and then that one will be chosen. There is no strict ordering between gender and C-score or workload and ethnicity as well.
-
-
-## Tests
-
-Wrote tests on 
-- Checking team size 
-- Checking the matching of commitment 
-- Checking the handling of missing/invalid values
