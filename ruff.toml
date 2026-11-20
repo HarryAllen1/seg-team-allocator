@@ -1,0 +1,10 @@
+[lint]
+preview = true
+select = [
+    "correctness",
+    "suspicious",
+    "security",
+    "complexity",
+    "performance",
+    "style",
+]
