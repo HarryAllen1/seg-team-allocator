@@ -92,8 +92,7 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
         return self.instance.ethnicity if value is None else value
 
     def clean_c_score(self):
-        value = self.cleaned_data.get('c_score')
-        return self.instance.c_score if value is None else value
+        return self.cleaned_data.get('c_score')
 
     class Meta:
         model = User

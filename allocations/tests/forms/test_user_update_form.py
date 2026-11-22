@@ -81,7 +81,7 @@ class UserUpdateFormTestCase(TestCase):
         self.assertTrue(self.user.is_superuser)
         self.assertEqual(self.user.gender, 1)
         self.assertEqual(self.user.ethnicity, 1)
-        self.assertEqual(self.user.c_score, Decimal('67'))
+        self.assertEqual(self.user.c_score, Decimal(67))
 
     def test_save_can_remove_superuser_status(self):
         self.user.is_superuser = True
@@ -91,6 +91,16 @@ class UserUpdateFormTestCase(TestCase):
         form.save()
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_superuser)
+
+    def test_save_can_clear_c_score(self):
+        self.user.c_score = Decimal(67)
+        self.user.save()
+        self.data['c_score'] = ''
+        form = UserUpdateForm(self.data, instance=self.user)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.c_score)
 
     def test_save_does_not_change_password(self):
         form = UserUpdateForm(self.data, instance=self.user)
