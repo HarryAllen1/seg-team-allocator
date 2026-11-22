@@ -63,16 +63,7 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 
     class Meta:
         model = User
-        fields = [
-            'username',
-            'first_name',
-            'last_name',
-            'email',
-            'is_superuser',
-            'gender',
-            'ethnicity',
-            'c_score',
-        ]
+        fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
 
     def validate_passwords(self, password1_field_name='password', password2_field_name='password_confirmation'):
         super().validate_passwords(password1_field_name, password2_field_name)
