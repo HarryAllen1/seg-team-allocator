@@ -40,6 +40,17 @@ class UserDetailViewTestCase(SuperuserOnlyViewTests, TestCase):
         response = self.client.get(reverse('user_detail', args=[self.superuser.id]))
         self.assertContains(response, '<dd>Yes</dd>')
 
+    def test_page_shows_profile_choice_labels(self):
+        self.user.ethnicity = self.user.Ethnicity.ASIAN
+        self.user.gender = self.user.Gender.WOMAN
+        self.user.save()
+
+        response = self.client.get(self.url)
+
+        self.assertContains(response, '<dd>Asian, or Asian British</dd>')
+        self.assertContains(response, '<dd>Woman</dd>')
+        self.assertNotContains(response, '<dd>1</dd>')
+
     def test_page_does_not_show_password(self):
         response = self.client.get(self.url)
         self.assertNotContains(response, self.user.password)

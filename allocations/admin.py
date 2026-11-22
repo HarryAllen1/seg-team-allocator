@@ -1,6 +1,20 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import User
+from .models import Team, User
 
-admin.site.register(User, UserAdmin)
+
+@admin.register(User)
+class CustomUserAdmin(UserAdmin):
+    fieldsets = list(UserAdmin.fieldsets or ()) + [
+        ('Allocation profile', {'fields': ('gender', 'ethnicity', 'c_score')}),
+    ]
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ('Allocation profile', {'fields': ('gender', 'ethnicity', 'c_score')}),
+    )
+
+
+@admin.register(Team)
+class TeamAdmin(admin.ModelAdmin):
+    list_display = ('name',)
+    filter_horizontal = ('members',)
