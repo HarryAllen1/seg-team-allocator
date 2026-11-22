@@ -4,6 +4,7 @@ The views are grouped into modules. They are all imported here, so that
 other code can keep using them as views.home, views.user_list, and so on.
 """
 
+from .cohort_views import upload_cohort as upload_cohort
 from .session_views import dashboard as dashboard
 from .session_views import home as home
 from .session_views import log_in as log_in
@@ -32,4 +33,3 @@ from .user_management_views import (
 from .user_management_views import (
     user_update as user_update,
 )
-from .cohort_views import upload_cohort
