@@ -82,9 +82,34 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
     """Form for a superuser to update the details of any user."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ('gender', 'ethnicity', 'c_score'):
+            self.fields[field_name].required = False
+
+    def clean_gender(self):
+        value = self.cleaned_data.get('gender')
+        return self.instance.gender if value is None else value
+
+    def clean_ethnicity(self):
+        value = self.cleaned_data.get('ethnicity')
+        return self.instance.ethnicity if value is None else value
+
+    def clean_c_score(self):
+        return self.cleaned_data.get('c_score')
+
     class Meta:
         model = User
-        fields: ClassVar[list[str]] = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+        fields: ClassVar[list[str]] = [
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'is_superuser',
+            'gender',
+            'ethnicity',
+            'c_score',
+        ]
 
 # Rejects a name that does not end in .csv and a file larger than 2 MB, with a readable message
 # (Note: File size is not too necessary and may be removed)
