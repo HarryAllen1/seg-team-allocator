@@ -32,3 +32,4 @@ from .user_management_views import (
 from .user_management_views import (
     user_update as user_update,
 )
+from .cohort_views import upload_cohort
