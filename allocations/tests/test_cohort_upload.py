@@ -42,11 +42,11 @@ class UploadCohortViewTests(TestCase):
         response = self.upload(GOOD_FILE)
         self.assertContains(response, 'Imported 2 students: 2 new, 0 updated.')
         ann = User.objects.get(email='ann@x.ac.uk')
-        self.assertEqual((ann.first_name, ann.gender, ann.ethnicity, ann.c_score), ('Ann', 1, 4, Decimal('70')))
+        self.assertEqual((ann.first_name, ann.gender, ann.ethnicity, ann.c_score), ('Ann', 1, 4, Decimal(70)))
         self.assertEqual(ann.username, 'ann@x.ac.uk')
         self.assertFalse(ann.has_usable_password())
         self.assertFalse(ann.is_staff)
-        self.assertEqual(User.objects.get(email='bob@x.ac.uk').c_score, Decimal('55'))
+        self.assertEqual(User.objects.get(email='bob@x.ac.uk').c_score, Decimal(55))
 
     def test_unstored_extra_columns_are_reported(self):
         self.assertContains(self.upload(GOOD_FILE), 'programme were accepted but are not stored yet')
@@ -57,7 +57,7 @@ class UploadCohortViewTests(TestCase):
         self.assertContains(response, '1 new, 1 updated')
         self.assertEqual(User.objects.filter(email__iexact='ann@x.ac.uk').count(), 1)
         ann = User.objects.get(username='ann')
-        self.assertEqual((ann.first_name, ann.email, ann.c_score), ('Ann', 'ann@x.ac.uk', Decimal('70')))
+        self.assertEqual((ann.first_name, ann.email, ann.c_score), ('Ann', 'ann@x.ac.uk', Decimal(70)))
 
     def test_users_missing_from_the_file_are_left_alone(self):
         User.objects.create_user('zed', first_name='Zed', last_name='Z', email='zed@x.ac.uk')

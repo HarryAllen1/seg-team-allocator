@@ -37,13 +37,13 @@ class ValidFileTests(unittest.TestCase):
         self.assertTrue(r.is_valid)
 
     def test_semicolon_delimiter_is_detected(self):
-        raw = 'first_name;last_name;email\nAnn;Lee;ann@x.ac.uk\n'.encode()
+        raw = b'first_name;last_name;email\nAnn;Lee;ann@x.ac.uk\n'
         r = parse_cohort_csv(raw)
         self.assertTrue(r.is_valid)
         self.assertEqual(r.students[0].email, 'ann@x.ac.uk')
 
     def test_quoted_comma_and_newline_inside_value(self):
-        raw = 'first_name,last_name,email,programme\nAnn,"Lee, Jr",ann@x.ac.uk,"BSc\nMaths"\n'.encode()
+        raw = b'first_name,last_name,email,programme\nAnn,"Lee, Jr",ann@x.ac.uk,"BSc\nMaths"\n'
         r = parse_cohort_csv(raw)
         self.assertTrue(r.is_valid)
         self.assertEqual(r.students[0].last_name, 'Lee, Jr')
@@ -63,7 +63,7 @@ class TolerancesTests(unittest.TestCase):
         self.assertTrue(any('lower case' in w.message for w in r.warnings))
 
     def test_header_case_and_spacing_tolerated(self):
-        raw = ' First_Name , LAST_NAME ,Email\nAnn,Lee,ann@x.ac.uk\n'.encode()
+        raw = b' First_Name , LAST_NAME ,Email\nAnn,Lee,ann@x.ac.uk\n'
         self.assertTrue(parse_cohort_csv(raw).is_valid)
 
     def test_blank_optional_values_default_with_warnings(self):
@@ -74,7 +74,7 @@ class TolerancesTests(unittest.TestCase):
         self.assertEqual(len(r.warnings), 3)
 
     def test_missing_optional_columns_default_with_warnings(self):
-        raw = 'first_name,last_name,email\nAnn,Lee,ann@x.ac.uk\n'.encode()
+        raw = b'first_name,last_name,email\nAnn,Lee,ann@x.ac.uk\n'
         r = parse_cohort_csv(raw)
         self.assertTrue(r.is_valid)
         self.assertEqual((r.students[0].gender, r.students[0].c_score), (0, None))
