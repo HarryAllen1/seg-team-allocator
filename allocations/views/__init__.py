@@ -17,3 +17,4 @@ from .user_management_views import (
 )
 
 from .export_views import export_allocation
+from .cohort_views import upload_cohort

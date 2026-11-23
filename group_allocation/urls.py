@@ -19,4 +19,5 @@ urlpatterns = [
 
     #Export URL
     path('export_allocation/', views.export_allocation, name='export_allocation'),
+    path('cohort/upload/', views.upload_cohort, name='upload_cohort'),
 ]
