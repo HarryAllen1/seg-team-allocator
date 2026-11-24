@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django import forms
 from django.contrib.auth.forms import (
     AuthenticationForm,
@@ -29,12 +31,14 @@ class PasswordForm(BootstrapFormMixin, PasswordChangeForm):
     """Form for a logged in user to change their own password."""
 
     # Replace Django's new_password1 and new_password2 fields with clearer names.
-    new_password1 = None
-    new_password2 = None
+    new_password1 = None  # pyright: ignore[reportIncompatibleVariableOverride, reportAssignmentType]
+    new_password2 = None  # pyright: ignore[reportIncompatibleVariableOverride, reportAssignmentType]
     new_password, new_password_confirmation = SetPasswordMixin.create_password_fields(
         label1='New password', label2='New password confirmation'
     )
-    field_order = ['old_password', 'new_password', 'new_password_confirmation']
+    def __init__(self, *args, **kwargs):
+        self.field_order = ('old_password', 'new_password', 'new_password_confirmation')
+        super().__init__(*args, **kwargs)
 
     def clean(self):
         self.validate_passwords('new_password', 'new_password_confirmation')
@@ -50,7 +54,7 @@ class ProfileForm(BootstrapFormMixin, forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email']
+        fields: ClassVar[list[str]] = ['username', 'first_name', 'last_name', 'email']
 
 
 class UserCreateForm(BootstrapFormMixin, UserCreationForm):
@@ -63,7 +67,7 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+        fields: ClassVar[list[str]] = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
 
     def validate_passwords(self, password1_field_name='password', password2_field_name='password_confirmation'):
         super().validate_passwords(password1_field_name, password2_field_name)
@@ -78,6 +82,51 @@ class UserCreateForm(BootstrapFormMixin, UserCreationForm):
 class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
     """Form for a superuser to update the details of any user."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ('gender', 'ethnicity', 'c_score'):
+            self.fields[field_name].required = False
+
+    def clean_gender(self):
+        value = self.cleaned_data.get('gender')
+        return self.instance.gender if value is None else value
+
+    def clean_ethnicity(self):
+        value = self.cleaned_data.get('ethnicity')
+        return self.instance.ethnicity if value is None else value
+
+    def clean_c_score(self):
+        return self.cleaned_data.get('c_score')
+
     class Meta:
         model = User
-        fields = ['username', 'first_name', 'last_name', 'email', 'is_superuser']
+        fields: ClassVar[list[str]] = [
+            'username',
+            'first_name',
+            'last_name',
+            'email',
+            'is_superuser',
+            'gender',
+            'ethnicity',
+            'c_score',
+        ]
+
+# Rejects a name that does not end in .csv and a file larger than 2 MB, with a readable message
+# (Note: File size is not too necessary and may be removed)
+MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB is far more than ~300 students need
+class CohortUploadForm(BootstrapFormMixin, forms.Form):
+    """Form for a logged in user to upload a cohort CSV file."""
+
+    file = forms.FileField(
+        label='Cohort CSV file',
+        help_text='One row per student. Required columns: first_name, last_name, email.',
+        widget=forms.ClearableFileInput(attrs={'accept': '.csv,text/csv'}),
+    )
+
+    def clean_file(self):
+        upload = self.cleaned_data['file']
+        if not upload.name.lower().endswith('.csv'):
+            raise forms.ValidationError('Please upload a file with a .csv extension.')
+        if upload.size > MAX_UPLOAD_BYTES:
+            raise forms.ValidationError('The file is larger than 2 MB. Check that it is the right file.')
+        return upload
