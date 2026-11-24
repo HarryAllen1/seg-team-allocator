@@ -1,7 +1,8 @@
 """Views for exporting the csv."""
 
-from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+
 from allocations.csv_processing import write_csv
 
 # Temporary stand in data and will be replaced with a database query once operational.

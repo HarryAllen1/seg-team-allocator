@@ -20,17 +20,17 @@ from .user_management_views import (
 
 __all__ = [
     "dashboard",
+    "export_allocation",
     "home",
     "log_in",
     "log_out",
     "password",
     "profile",
     "superuser_required",
+    "upload_cohort",
     "user_create",
     "user_delete",
     "user_detail",
     "user_list",
     "user_update",
-    "upload_cohort",
-    "export_allocation",
 ]
