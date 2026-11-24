@@ -4,7 +4,12 @@ from django.test import TestCase
 from django.urls import reverse
 
 from allocations.forms import LogInForm
-from allocations.tests.helpers import PASSWORD, create_user, log_in_url_for, logged_in_user_id
+from allocations.tests.helpers import (
+    PASSWORD,
+    create_user,
+    log_in_url_for,
+    logged_in_user_id,
+)
 
 
 class HomeViewTestCase(TestCase):
