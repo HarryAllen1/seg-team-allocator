@@ -5,8 +5,13 @@ from unittest.mock import patch
 
 from allocations.choices import Ethnicity, Gender
 from allocations.services.allocation import (
-    MAX_STUDENTS, AllocationError, AllocationOptions, Student, allocate_students,
-    gender_issues, team_cost, validate_students,
+    MAX_STUDENTS,
+    AllocationError,
+    AllocationOptions,
+    allocate_students,
+    gender_issues,
+    team_cost,
+    validate_students,
 )
 from allocations.tests.allocation_helpers import students
 
@@ -84,7 +89,7 @@ class AllocationTests(TestCase):
     def test_decimal_marks_and_zero_target(self):
         cohort = students(4, c_score=Decimal('60.01'))
         cohort[-1] = replace(cohort[-1], c_score=Decimal('60.02'))
-        result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal('0')))
+        result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal(0)))
         self.assertEqual(result.metrics[0]['c_score_spread'], '0.01')
         self.assertEqual(result.metrics[0]['high_penalty'], 4)
 
