@@ -1,17 +1,16 @@
+import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
-from itertools import combinations
 from fractions import Fraction
-import re
+from itertools import combinations
 
+from allocations.choices import Ethnicity, Gender
 
 MAX_STUDENTS = 1000
 MAX_SWAP_CHECKS = 30000
 MAX_SWAP_PASSES = 4
 ALGORITHM_VERSION = '1'
-GENDERS = ('woman', 'man', 'other', '')
-ETHNICITIES = ('asian', 'black', 'mixed', 'white', 'other', '')
 WORKLOADS = ('exceed', 'meet', 'reduce', '')
 
 
@@ -26,9 +25,9 @@ class Student:
     email: str
     c_score: Decimal | None = None
     committed: bool | None = None
-    gender: str = ''
+    gender: int = Gender.NOT_PROVIDED
     workload: str = ''
-    ethnicity: str = ''
+    ethnicity: int = Ethnicity.NOT_PROVIDED
 
 
 @dataclass(frozen=True)
@@ -109,9 +108,12 @@ def validate_students(students):
         emails.add(email)
         if student.committed is not None and type(student.committed) is not bool:
             raise AllocationError(f'Student {index}: commitment must be answered yes or no.')
-        for field, choices in (('gender', GENDERS), ('workload', WORKLOADS), ('ethnicity', ETHNICITIES)):
-            if getattr(student, field) not in choices:
+        for field, choices in (('gender', Gender), ('ethnicity', Ethnicity)):
+            code = getattr(student, field)
+            if isinstance(code, bool) or not isinstance(code, int) or code not in choices:
                 raise AllocationError(f'Student {index}: invalid {field}.')
+        if student.workload not in WORKLOADS:
+            raise AllocationError(f'Student {index}: invalid workload.')
         mark = percentage(student.c_score, f'Student {index} C-score') if student.c_score is not None else None
         cleaned.append(replace(student, **names, email=email, c_score=mark))
     if not cleaned:
@@ -119,18 +121,23 @@ def validate_students(students):
     return cleaned
 
 
-def gender_issues(team):
-    counts = Counter(student.gender for student in team if student.gender)
-    affected = []
-    for student in team:
-        if student.gender in ('woman', 'man') and counts[student.gender] == 1:
-            affected.append(student.email)
-        elif student.gender == 'other' and counts['other'] == 1 and len(counts) < 2:
-            affected.append(student.email)
-    return affected
+def gender_issues(team, cohort_gender_counts=None):
+    """
+    Check gender pairings against cohort
+    If evaluated alone, gender pairings are checked against the team only
+    """
+    team_counts = Counter(student.gender for student in team if student.gender != Gender.NOT_PROVIDED)
+    if cohort_gender_counts is None:
+        cohort_gender_counts = team_counts
+    return [
+        student.email for student in team
+        if team_counts[student.gender] == 1
+        and (cohort_gender_counts[student.gender] > 1
+             or len(team_counts) == 1)
+    ]
 
 
-def team_cost(team, options):
+def team_cost(team, options, cohort_gender_counts=None):
     size = len(team)
     high = 0
     if options.use_c_score:
@@ -139,7 +146,7 @@ def team_cost(team, options):
         # scale the mark penalty so hundredths of a mark count in the integer score
         high += size * int(excess * 100)
     if options.use_gender:
-        high += 10000 * len(gender_issues(team))
+        high += 10000 * len(gender_issues(team, cohort_gender_counts))
     if options.commitment_mode == 'soft':
         commitments = Counter(s.committed for s in team if s.committed is not None)
         high += 10000 * (sum(commitments.values()) - max(commitments.values(), default=0))
@@ -158,12 +165,12 @@ def team_cost(team, options):
     return high, low
 
 
-def team_metrics(team, options):
+def team_metrics(team, options, cohort_gender_counts=None):
     marks = [student.c_score for student in team if student.c_score is not None]
     commitments = {student.committed for student in team if student.committed is not None}
     workloads = [student.workload for student in team if student.workload]
     ethnicities = [student.ethnicity for student in team if student.ethnicity]
-    high, low = team_cost(team, options)
+    high, low = team_cost(team, options, cohort_gender_counts)
     return {
         'size': len(team),
         'commitment_label': 'Mixed' if len(commitments) > 1 else ('Yes' if True in commitments else ('No' if False in commitments else 'Unanswered')),
@@ -172,7 +179,7 @@ def team_metrics(team, options):
         'c_score_max': str(max(marks)) if marks else None,
         'c_score_spread': str(max(marks) - min(marks)) if marks else None,
         'c_score_exceeded': options.use_c_score and bool(marks) and max(marks) - min(marks) > options.c_score_target,
-        'gender_issues': gender_issues(team) if options.use_gender else [],
+        'gender_issues': gender_issues(team, cohort_gender_counts) if options.use_gender else [],
         'workload_mismatched_pairs': sum(a != b for a, b in combinations(workloads, 2)) if options.use_workload else 0,
         'ethnicity_repeated_pairs': sum(a == b for a, b in combinations(ethnicities, 2)) if options.use_ethnicity else 0,
         'high_penalty': high,
@@ -180,7 +187,7 @@ def team_metrics(team, options):
     }
 
 
-def _initial_teams(students, options):
+def _initial_teams(students, options, cohort_gender_counts):
     ordered = sorted(students, key=lambda student: (student.c_score if options.use_c_score else 0, student.email))
     # for the first n students keep the best cost and size of the last team
     costs = [None] * (len(ordered) + 1)
@@ -191,7 +198,7 @@ def _initial_teams(students, options):
             start = end - size
             if start < 0 or costs[start] is None:
                 continue
-            high, low = team_cost(ordered[start:end], options)
+            high, low = team_cost(ordered[start:end], options, cohort_gender_counts)
             candidate = (costs[start][0] + high, costs[start][1] + low)
             if costs[end] is None or candidate < costs[end]:
                 costs[end] = candidate
@@ -211,8 +218,8 @@ def _initial_teams(students, options):
     return list(reversed(teams))
 
 
-def _improve_teams(teams, options):
-    costs = [team_cost(team, options) for team in teams]
+def _improve_teams(teams, options, cohort_gender_counts):
+    costs = [team_cost(team, options, cohort_gender_counts) for team in teams]
     checks = 0
     for _ in range(MAX_SWAP_PASSES):
         changed = False
@@ -228,8 +235,8 @@ def _improve_teams(teams, options):
                         # only the two teams in the swap can change the total cost
                         old = (costs[left][0] + costs[right][0], costs[left][1] + costs[right][1])
                         teams[left][a], teams[right][b] = teams[right][b], teams[left][a]
-                        left_cost = team_cost(teams[left], options)
-                        right_cost = team_cost(teams[right], options)
+                        left_cost = team_cost(teams[left], options, cohort_gender_counts)
+                        right_cost = team_cost(teams[right], options, cohort_gender_counts)
                         new = (left_cost[0] + right_cost[0], left_cost[1] + right_cost[1])
                         if new < old:
                             costs[left], costs[right] = left_cost, right_cost
@@ -252,20 +259,21 @@ def allocate_students(students, options=AllocationOptions()):
     teams = []
     search_limited = False
     initial_groups = []
+    cohort_gender_counts = Counter(s.gender for s in students if s.gender != Gender.NOT_PROVIDED)
     # check every group can form teams before beginning to work on swaps
     if options.commitment_mode == 'hard':
         for committed in (True, False):
             group = [student for student in students if student.committed == committed]
             if group:
-                initial_groups.append(_initial_teams(group, options))
+                initial_groups.append(_initial_teams(group, options, cohort_gender_counts))
     else:
-        initial_groups.append(_initial_teams(students, options))
+        initial_groups.append(_initial_teams(students, options, cohort_gender_counts))
     for initial in initial_groups:
-        improved, limited = _improve_teams(initial, options)
+        improved, limited = _improve_teams(initial, options, cohort_gender_counts)
         teams.extend(improved)
         search_limited = search_limited or limited
     teams = tuple(tuple(sorted(team, key=lambda student: student.email)) for team in teams)
-    metrics = tuple(team_metrics(team, options) for team in teams)
+    metrics = tuple(team_metrics(team, options, cohort_gender_counts) for team in teams)
     warnings = allocation_warnings(metrics, options)
     if search_limited:
         warnings.append('The improvement search reached its limit. Further improvements may be possible.')
