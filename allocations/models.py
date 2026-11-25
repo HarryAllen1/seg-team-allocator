@@ -4,6 +4,8 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from allocations import choices
+
 
 class User(AbstractUser):
     """A user of the group allocation application.
@@ -17,19 +19,9 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     email = models.EmailField(unique=True)
-    class Gender(models.IntegerChoices):
-        NOT_PROVIDED = 0, 'Not provided'
-        WOMAN = 1, 'Woman'
-        MAN = 2, 'Man'
-        OTHER_NON_BINARY = 3, 'Other/Non-binary'
 
-    class Ethnicity(models.IntegerChoices):
-        NOT_PROVIDED = 0, 'Not provided'
-        ASIAN = 1, 'Asian, or Asian British'
-        BLACK = 2, 'Black, Black British, Caribbean, or African'
-        MIXED = 3, 'Mixed, or multiple ethnic groups'
-        WHITE = 4, 'White'
-        OTHER = 5, 'Other ethnic group (e.g. Arab)'
+    Gender = choices.Gender
+    Ethnicity = choices.Ethnicity
 
     gender = models.PositiveSmallIntegerField(
         choices=Gender.choices,

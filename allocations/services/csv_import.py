@@ -33,21 +33,16 @@ import io
 import re
 from dataclasses import dataclass, field
 
+from allocations.choices import Ethnicity, Gender
+
 REQUIRED_COLUMNS = ('first_name', 'last_name', 'email')
 GENDER_COLUMN = 'gender'
 ETHNICITY_COLUMN = 'ethnicity'
 C_SCORE_COLUMN = 'c-score'
 KNOWN_COLUMNS = REQUIRED_COLUMNS + (GENDER_COLUMN, ETHNICITY_COLUMN, C_SCORE_COLUMN)
 
-GENDER_CODES = {0: 'Not provided', 1: 'Woman', 2: 'Man', 3: 'Other/Non-binary'}
-ETHNICITY_CODES = {
-    0: 'Not provided',
-    1: 'Asian, or Asian British',
-    2: 'Black, Black British, Caribbean, or African',
-    3: 'Mixed, or multiple ethnic groups',
-    4: 'White',
-    5: 'Other ethnic group',
-}
+GENDER_CODES = dict(Gender.choices)
+ETHNICITY_CODES = dict(Ethnicity.choices)
 C_SCORE_MIN, C_SCORE_MAX = 0, 100
 # Limits of the User model: names are 50 characters, and the email is also used as the username (150).
 MAX_NAME_LENGTH = 50
