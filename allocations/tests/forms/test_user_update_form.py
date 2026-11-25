@@ -21,6 +21,8 @@ class UserUpdateFormTestCase(TestCase):
             'gender': '1',
             'ethnicity': '1',
             'c_score': '67',
+            'committed': 'on',
+            'workload': '2',
         }
 
     def test_form_has_the_necessary_fields(self):
@@ -28,7 +30,7 @@ class UserUpdateFormTestCase(TestCase):
         self.assertEqual(
             list(form.fields),
             ['username', 'first_name', 'last_name', 'email', 'is_superuser',
-             'gender', 'ethnicity', 'c_score'],
+             'gender', 'ethnicity', 'c_score', 'committed', 'workload'],
         )
 
     def test_superuser_field_is_a_checkbox(self):
@@ -46,6 +48,8 @@ class UserUpdateFormTestCase(TestCase):
         self.assertEqual(form['gender'].value(), 0)
         self.assertEqual(form['ethnicity'].value(), 0)
         self.assertIsNone(form['c_score'].value())
+        self.assertTrue(form['committed'].value())
+        self.assertEqual(form['workload'].value(), 0)
 
     def test_valid_form(self):
         form = UserUpdateForm(self.data, instance=self.user)
@@ -82,6 +86,26 @@ class UserUpdateFormTestCase(TestCase):
         self.assertEqual(self.user.gender, 1)
         self.assertEqual(self.user.ethnicity, 1)
         self.assertEqual(self.user.c_score, Decimal(67))
+        self.assertTrue(self.user.committed)
+        self.assertEqual(self.user.workload, 2)
+
+    def test_save_can_mark_user_not_committed(self):
+        self.data.pop('committed')
+        form = UserUpdateForm(self.data, instance=self.user)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.committed)
+
+    def test_save_preserves_workload_when_field_is_omitted(self):
+        self.user.workload = 2
+        self.user.save()
+        self.data.pop('workload')
+        form = UserUpdateForm(self.data, instance=self.user)
+        self.assertTrue(form.is_valid())
+        form.save()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.workload, 2)
 
     def test_save_can_remove_superuser_status(self):
         self.user.is_superuser = True
