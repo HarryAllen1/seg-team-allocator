@@ -1,4 +1,4 @@
-from allocations.policies.base import Violation, Policy
+from allocations.policies.base import Policy, Violation
 
 
 class TeamSizePolicy(Policy):

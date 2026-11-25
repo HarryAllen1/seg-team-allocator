@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from allocations.policies.base import Violation, PolicyResult, Policy
+from allocations.policies.base import Policy, PolicyResult, Violation
 
 
 class PolicyResultTest(TestCase):
