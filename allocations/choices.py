@@ -15,3 +15,10 @@ class Ethnicity(IntegerChoices):
     MIXED = 3, 'Mixed, or multiple ethnic groups'
     WHITE = 4, 'White'
     OTHER = 5, 'Other ethnic group (e.g. Arab)'
+
+
+class Workload(IntegerChoices):
+    NOT_PROVIDED = 0, 'Not provided'
+    REDUCED = 1, 'Reduced workload'
+    MEET = 2, 'Meet expected workload'
+    EXCEED = 3, 'Exceed expected workload'
