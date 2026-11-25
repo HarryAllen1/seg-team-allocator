@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from allocations.policies.ethnicity import EthnicityDiversityPolicy
 
-
 ASIAN, BLACK, MIXED, WHITE, OTHER, U = 1, 2, 3, 4, 5, 0
 
 
