@@ -1,33 +1,23 @@
 import re
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from fractions import Fraction
 from itertools import combinations
 
-from allocations.choices import Ethnicity, Gender
+from allocations.choices import Ethnicity, Gender, Workload
+from allocations.models import User
 
 MAX_STUDENTS = 1000
 MAX_SWAP_CHECKS = 30000
 MAX_SWAP_PASSES = 4
 ALGORITHM_VERSION = '1'
-WORKLOADS = ('exceed', 'meet', 'reduce', '')
+WORKLOAD_LEVELS = {Workload.REDUCED: 0, Workload.MEET: 1, Workload.EXCEED: 2}
 
 
 class AllocationError(ValueError):
     pass
-
-
-@dataclass(frozen=True)
-class Student:
-    first_name: str
-    last_name: str
-    email: str
-    c_score: Decimal | None = None
-    committed: bool | None = None
-    gender: int = Gender.NOT_PROVIDED
-    workload: str = ''
-    ethnicity: int = Ethnicity.NOT_PROVIDED
 
 
 @dataclass(frozen=True)
@@ -44,7 +34,7 @@ class AllocationOptions:
 
 @dataclass(frozen=True)
 class AllocationResult:
-    teams: tuple[tuple[Student, ...], ...]
+    teams: tuple[tuple[User, ...], ...]
     metrics: tuple[dict, ...]
     warnings: tuple[str, ...]
     search_limited: bool
@@ -80,45 +70,51 @@ def validate_options(options):
     return replace(options, c_score_target=percentage(options.c_score_target, 'C-score target'))
 
 
-def validate_students(students):
+def normalized_email(user: User) -> str:
+    return user.email.strip().casefold()
+
+
+def c_score(user: User) -> Decimal | None:
+    mark = user.c_score
+    return mark if mark is None or isinstance(mark, Decimal) else Decimal(str(mark))
+
+
+def validate_students(students: Iterable[User]) -> list[User]:
     try:
         students = iter(students)
     except TypeError:
         raise AllocationError('The cohort must be a collection of students.') from None
-    cleaned = []
+    validated = []
     emails = set()
     for index, student in enumerate(students, start=1):
         if index > MAX_STUDENTS:
             raise AllocationError(f'A cohort can contain at most {MAX_STUDENTS} students.')
-        if not isinstance(student, Student):
+        if not isinstance(student, User):
             raise AllocationError(f'Student {index} is invalid.')
-        names = {}
         for field in ('first_name', 'last_name'):
             value = getattr(student, field)
             if not isinstance(value, str) or not value.strip() or len(value.strip()) > 50:
                 raise AllocationError(f'Student {index}: {field} is required and must fit in 50 characters.')
-            names[field] = value.strip()
         email = student.email
         if not isinstance(email, str) or len(email.strip()) > 254 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email.strip()):
             raise AllocationError(f'Student {index}: provide a valid email address.')
         # check for duplicates after normalising so case and spaces cannot hide them
-        email = email.strip().casefold()
+        email = normalized_email(student)
         if email in emails:
             raise AllocationError(f'Duplicate student email: {email}.')
         emails.add(email)
-        if student.committed is not None and type(student.committed) is not bool:
+        if type(student.committed) is not bool:
             raise AllocationError(f'Student {index}: commitment must be answered yes or no.')
-        for field, choices in (('gender', Gender), ('ethnicity', Ethnicity)):
+        for field, choices in (('gender', Gender), ('ethnicity', Ethnicity), ('workload', Workload)):
             code = getattr(student, field)
             if isinstance(code, bool) or not isinstance(code, int) or code not in choices:
                 raise AllocationError(f'Student {index}: invalid {field}.')
-        if student.workload not in WORKLOADS:
-            raise AllocationError(f'Student {index}: invalid workload.')
-        mark = percentage(student.c_score, f'Student {index} C-score') if student.c_score is not None else None
-        cleaned.append(replace(student, **names, email=email, c_score=mark))
-    if not cleaned:
+        if student.c_score is not None:
+            percentage(student.c_score, f'Student {index} C-score')
+        validated.append(student)
+    if not validated:
         raise AllocationError('The cohort is empty. Provide at least one student.')
-    return cleaned
+    return validated
 
 
 def gender_issues(team, cohort_gender_counts=None):
@@ -130,7 +126,7 @@ def gender_issues(team, cohort_gender_counts=None):
     if cohort_gender_counts is None:
         cohort_gender_counts = team_counts
     return [
-        student.email for student in team
+        normalized_email(student) for student in team
         if team_counts[student.gender] == 1
         and (cohort_gender_counts[student.gender] > 1
              or len(team_counts) == 1)
@@ -141,20 +137,21 @@ def team_cost(team, options, cohort_gender_counts=None):
     size = len(team)
     high = 0
     if options.use_c_score:
-        spread = max(student.c_score for student in team) - min(student.c_score for student in team)
+        marks = [c_score(student) for student in team]
+        spread = max(marks) - min(marks)
         excess = max(Decimal(0), spread - options.c_score_target)
         # scale the mark penalty so hundredths of a mark count in the integer score
         high += size * int(excess * 100)
     if options.use_gender:
         high += 10000 * len(gender_issues(team, cohort_gender_counts))
     if options.commitment_mode == 'soft':
-        commitments = Counter(s.committed for s in team if s.committed is not None)
+        commitments = Counter(s.committed for s in team)
         high += 10000 * (sum(commitments.values()) - max(commitments.values(), default=0))
 
     low = Fraction(0)
     if options.use_workload:
-        workload_values = {'reduce': 0, 'meet': 1, 'exceed': 2}
-        pairs = list(combinations([workload_values[s.workload] for s in team if s.workload], 2))
+        levels = [WORKLOAD_LEVELS[s.workload] for s in team if s.workload != Workload.NOT_PROVIDED]
+        pairs = list(combinations(levels, 2))
         if pairs:
             low += size * Fraction(sum(abs(a - b) for a, b in pairs), 2 * len(pairs))
     if options.use_ethnicity:
@@ -166,14 +163,14 @@ def team_cost(team, options, cohort_gender_counts=None):
 
 
 def team_metrics(team, options, cohort_gender_counts=None):
-    marks = [student.c_score for student in team if student.c_score is not None]
-    commitments = {student.committed for student in team if student.committed is not None}
-    workloads = [student.workload for student in team if student.workload]
+    marks = [c_score(student) for student in team if student.c_score is not None]
+    commitments = {student.committed for student in team}
+    workloads = [student.workload for student in team if student.workload != Workload.NOT_PROVIDED]
     ethnicities = [student.ethnicity for student in team if student.ethnicity]
     high, low = team_cost(team, options, cohort_gender_counts)
     return {
         'size': len(team),
-        'commitment_label': 'Mixed' if len(commitments) > 1 else ('Yes' if True in commitments else ('No' if False in commitments else 'Unanswered')),
+        'commitment_label': 'Mixed' if len(commitments) > 1 else ('Yes' if True in commitments else 'No'),
         'mixed_commitment': options.commitment_mode != 'ignore' and len(commitments) > 1,
         'c_score_min': str(min(marks)) if marks else None,
         'c_score_max': str(max(marks)) if marks else None,
@@ -188,7 +185,7 @@ def team_metrics(team, options, cohort_gender_counts=None):
 
 
 def _initial_teams(students, options, cohort_gender_counts):
-    ordered = sorted(students, key=lambda student: (student.c_score if options.use_c_score else 0, student.email))
+    ordered = sorted(students, key=lambda student: (c_score(student) if options.use_c_score else 0, normalized_email(student)))
     # for the first n students keep the best cost and size of the last team
     costs = [None] * (len(ordered) + 1)
     previous = [None] * len(costs)
@@ -248,14 +245,12 @@ def _improve_teams(teams, options, cohort_gender_counts):
     return teams, True
 
 
-def allocate_students(students, options=AllocationOptions()):
+def allocate_students(students: Iterable[User], options: AllocationOptions = AllocationOptions()) -> AllocationResult:
     options = validate_options(options)
     students = validate_students(students)
     for student in students:
         if options.use_c_score and student.c_score is None:
-            raise AllocationError(f'{student.email}: C-score is required when prior attainment is considered.')
-        if options.commitment_mode == 'hard' and student.committed is None:
-            raise AllocationError(f'{student.email}: commitment must be answered for hard commitment matching.')
+            raise AllocationError(f'{normalized_email(student)}: C-score is required when prior attainment is considered.')
     teams = []
     search_limited = False
     initial_groups = []
@@ -272,7 +267,7 @@ def allocate_students(students, options=AllocationOptions()):
         improved, limited = _improve_teams(initial, options, cohort_gender_counts)
         teams.extend(improved)
         search_limited = search_limited or limited
-    teams = tuple(tuple(sorted(team, key=lambda student: student.email)) for team in teams)
+    teams = tuple(tuple(sorted(team, key=normalized_email)) for team in teams)
     metrics = tuple(team_metrics(team, options, cohort_gender_counts) for team in teams)
     warnings = allocation_warnings(metrics, options)
     if search_limited:

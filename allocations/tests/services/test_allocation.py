@@ -1,9 +1,8 @@
-from dataclasses import replace
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import patch
 
-from allocations.choices import Ethnicity, Gender
+from allocations.choices import Ethnicity, Gender, Workload
 from allocations.services.allocation import (
     MAX_STUDENTS,
     AllocationError,
@@ -51,20 +50,22 @@ class AllocationTests(TestCase):
 
     def test_commitment_groups_stay_separate(self):
         cohort = students(9)
-        cohort = [replace(s, committed=index < 4) for index, s in enumerate(cohort)]
+        for student in cohort[4:]:
+            student.committed = False
         result = allocate_students(cohort)
         self.assert_partition(cohort, result)
         self.assertEqual([len(team) for team in result.teams], [4, 5])
 
     def test_infeasible_commitment_group_rejects_whole_cohort(self):
         cohort = students(8)
-        cohort[-1] = replace(cohort[-1], committed=False)
+        cohort[-1].committed = False
         with self.assertRaisesRegex(AllocationError, 'commitment Yes group has 7'):
             allocate_students(cohort)
 
     def test_feasibility_is_checked_before_improvement(self):
         cohort = students(11)
-        cohort = [replace(s, committed=index < 8) for index, s in enumerate(cohort)]
+        for student in cohort[8:]:
+            student.committed = False
         with (
             patch('allocations.services.allocation._improve_teams') as improve,
             self.assertRaisesRegex(AllocationError, 'commitment No group has 3'),
@@ -74,21 +75,22 @@ class AllocationTests(TestCase):
 
     def test_mark_bands_respect_target_when_possible(self):
         cohort = students(10)
-        cohort = [replace(s, c_score=Decimal(30 if index < 5 else 80)) for index, s in enumerate(cohort)]
+        for index, student in enumerate(cohort):
+            student.c_score = Decimal(30 if index < 5 else 80)
         result = allocate_students(cohort)
         self.assertEqual(result.warnings, ())
         self.assertEqual({m['c_score_spread'] for m in result.metrics}, {'0'})
 
     def test_unavoidable_mark_spread_is_returned_as_warning(self):
         cohort = students(4)
-        cohort[-1] = replace(cohort[-1], c_score=Decimal(100))
+        cohort[-1].c_score = Decimal(100)
         result = allocate_students(cohort)
         self.assertIn('spread 40 exceeds the target 10', result.warnings[0])
         self.assertTrue(result.metrics[0]['c_score_exceeded'])
 
     def test_decimal_marks_and_zero_target(self):
         cohort = students(4, c_score=Decimal('60.01'))
-        cohort[-1] = replace(cohort[-1], c_score=Decimal('60.02'))
+        cohort[-1].c_score = Decimal('60.02')
         result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal(0)))
         self.assertEqual(result.metrics[0]['c_score_spread'], '0.01')
         self.assertEqual(result.metrics[0]['high_penalty'], 4)
@@ -98,16 +100,16 @@ class AllocationTests(TestCase):
 
     def test_unique_gender_in_a_diverse_team_needs_no_warning(self):
         cohort = students(4, gender=Gender.MAN)
-        cohort[0] = replace(cohort[0], gender=Gender.WOMAN)
+        cohort[0].gender = Gender.WOMAN
         self.assertEqual(allocate_students(cohort).warnings, ())
-        cohort[0] = replace(cohort[0], gender=Gender.NOT_PROVIDED)
+        cohort[0].gender = Gender.NOT_PROVIDED
         self.assertEqual(gender_issues(cohort), [])
 
     def test_other_gender_prefers_diverse_teammates(self):
         cohort = students(4)
-        cohort[0] = replace(cohort[0], gender=Gender.OTHER_NON_BINARY)
+        cohort[0].gender = Gender.OTHER_NON_BINARY
         self.assertEqual(gender_issues(cohort), [cohort[0].email])
-        cohort[1] = replace(cohort[1], gender=Gender.MAN)
+        cohort[1].gender = Gender.MAN
         self.assertEqual(gender_issues(cohort), [])
 
     def test_other_gender_with_same_category_peer(self):
@@ -122,37 +124,41 @@ class AllocationTests(TestCase):
 
     def test_soft_commitment_handles_small_minority_group(self):
         cohort = students(8)
-        cohort[-1] = replace(cohort[-1], committed=False)
+        cohort[-1].committed = False
         result = allocate_students(cohort, AllocationOptions(commitment_mode='soft'))
         self.assertEqual(sum(map(len, result.teams)), 8)
         self.assertTrue(any(m['mixed_commitment'] for m in result.metrics))
         self.assertTrue(any('commitment answers differ' in warning for warning in result.warnings))
 
     def test_minimal_records_with_unused_attributes_omitted(self):
-        cohort = [replace(s, c_score=None, committed=None) for s in students(4)]
+        cohort = students(4, c_score=None)
         result = allocate_students(cohort, AllocationOptions(use_c_score=False, commitment_mode='ignore'))
         self.assertEqual(len(result.teams[0]), 4)
         self.assertIsNone(result.metrics[0]['c_score_spread'])
-        self.assertEqual(result.metrics[0]['commitment_label'], 'Unanswered')
+        self.assertEqual(result.metrics[0]['commitment_label'], 'Yes')
 
-    def test_soft_commitment_ignores_missing_answers(self):
-        cohort = students(4, committed=None)
+    def test_soft_commitment_uses_user_default(self):
+        cohort = students(4)
         result = allocate_students(cohort, AllocationOptions(commitment_mode='soft'))
         self.assertFalse(result.metrics[0]['mixed_commitment'])
+        self.assertEqual(result.metrics[0]['commitment_label'], 'Yes')
 
     def test_gender_improvement_pairs_students_when_possible(self):
         for gender in (Gender.WOMAN, Gender.OTHER_NON_BINARY):
             with self.subTest(gender=gender):
                 cohort = students(8, gender=Gender.MAN)
                 for index in (0, 4):
-                    cohort[index] = replace(cohort[index], gender=gender)
+                    cohort[index].gender = gender
                 result = allocate_students(cohort)
                 self.assertTrue(any(sum(s.gender == gender for s in team) == 2 for team in result.teams))
                 self.assertFalse(any(m['gender_issues'] for m in result.metrics))
 
     def test_gender_pairing_uses_the_whole_cohort_across_commitment_groups(self):
-        cohort = [replace(s, committed=i < 4, gender=3 if i in (0, 4) else 2)
-                  for i, s in enumerate(students(8))]
+        cohort = students(8, gender=Gender.MAN)
+        for student in cohort[4:]:
+            student.committed = False
+        for index in (0, 4):
+            cohort[index].gender = Gender.OTHER_NON_BINARY
         result = allocate_students(cohort)
         for team_number, index in enumerate((0, 4), start=1):
             metric = result.metrics[team_number - 1]
@@ -162,33 +168,39 @@ class AllocationTests(TestCase):
 
     def test_conflicting_high_tier_preferences_are_reported(self):
         cohort = students(4)
-        cohort[0] = replace(cohort[0], gender=Gender.WOMAN, c_score=Decimal(10))
+        cohort[0].gender = Gender.WOMAN
+        cohort[0].c_score = Decimal(10)
         result = allocate_students(cohort)
         self.assertEqual(len(result.warnings), 2)
 
     def test_lower_tier_cannot_trade_away_high_tier(self):
-        cohort = students(8, workload='meet', ethnicity=Ethnicity.ASIAN)
-        cohort = [replace(s, c_score=Decimal(0 if index < 4 else 100),
-                          workload='reduce' if index % 2 else 'exceed',
-                          ethnicity=Ethnicity.WHITE if index < 4 else Ethnicity.ASIAN) for index, s in enumerate(cohort)]
+        cohort = students(8)
+        for index, student in enumerate(cohort):
+            student.c_score = Decimal(0 if index < 4 else 100)
+            student.workload = Workload.REDUCED if index % 2 else Workload.EXCEED
+            student.ethnicity = Ethnicity.WHITE if index < 4 else Ethnicity.ASIAN
         result = allocate_students(cohort, AllocationOptions(c_score_target=Decimal(0)))
         self.assertTrue(all(m['high_penalty'] == 0 for m in result.metrics))
         self.assertTrue(all(len({s.ethnicity for s in team}) == 1 for team in result.teams))
 
     def test_workload_similarity_improves_within_high_tier_ties(self):
-        cohort = [replace(s, workload='reduce' if index % 2 else 'exceed') for index, s in enumerate(students(8))]
+        cohort = students(8, workload=Workload.EXCEED)
+        for student in cohort[1::2]:
+            student.workload = Workload.REDUCED
         result = allocate_students(cohort, AllocationOptions(use_ethnicity=False))
         self.assertTrue(all(len({s.workload for s in team}) == 1 for team in result.teams))
 
     def test_ethnic_diversity_improves_within_high_tier_ties(self):
-        cohort = [replace(s, ethnicity=Ethnicity.ASIAN if index < 4 else Ethnicity.WHITE)
-                  for index, s in enumerate(students(8))]
+        cohort = students(8, ethnicity=Ethnicity.ASIAN)
+        for student in cohort[4:]:
+            student.ethnicity = Ethnicity.WHITE
         result = allocate_students(cohort, AllocationOptions(use_workload=False))
         self.assertTrue(all(len({s.ethnicity for s in team}) == 2 for team in result.teams))
 
     def test_disabled_preferences_have_no_effect(self):
-        cohort = students(4, gender=Gender.MAN, workload='exceed', ethnicity=Ethnicity.ASIAN)
-        cohort[0] = replace(cohort[0], gender=Gender.WOMAN, workload='reduce')
+        cohort = students(4, gender=Gender.MAN, workload=Workload.EXCEED, ethnicity=Ethnicity.ASIAN)
+        cohort[0].gender = Gender.WOMAN
+        cohort[0].workload = Workload.REDUCED
         options = AllocationOptions(use_gender=False, use_workload=False, use_ethnicity=False)
         self.assertEqual(team_cost(cohort, options), (0, 0))
         self.assertEqual(allocate_students(cohort, options).warnings, ())
@@ -201,13 +213,14 @@ class AllocationTests(TestCase):
 
     def test_input_is_not_mutated(self):
         cohort = students(8)
-        before = list(cohort)
-        allocate_students(cohort)
-        self.assertEqual(cohort, before)
+        before = [vars(student).copy() for student in cohort]
+        result = allocate_students(cohort)
+        self.assertEqual([vars(student) for student in cohort], before)
+        self.assertCountEqual([id(student) for team in result.teams for student in team], [id(student) for student in cohort])
 
     def test_duplicate_emails_are_rejected_case_insensitively(self):
         cohort = students(4)
-        cohort[1] = replace(cohort[1], email=' ' + cohort[0].email.upper() + ' ')
+        cohort[1].email = ' ' + cohort[0].email.upper() + ' '
         with self.assertRaisesRegex(AllocationError, 'Duplicate student email'):
             allocate_students(cohort)
 
@@ -215,10 +228,11 @@ class AllocationTests(TestCase):
         cohort = students(4, first_name='Alex', last_name='Smith')
         self.assert_partition(cohort, allocate_students(cohort))
 
-    def test_required_names_and_email_are_normalized(self):
+    def test_validation_preserves_stored_names_and_email(self):
         student = students(1, first_name=' Alex ', last_name=' Smith ', email=' ALEX@EXAMPLE.ORG ')[0]
-        cleaned = validate_students([student])[0]
-        self.assertEqual((cleaned.first_name, cleaned.last_name, cleaned.email), ('Alex', 'Smith', 'alex@example.org'))
+        validated = validate_students([student])[0]
+        self.assertIs(validated, student)
+        self.assertEqual((student.first_name, student.last_name, student.email), (' Alex ', ' Smith ', ' ALEX@EXAMPLE.ORG '))
 
     def test_invalid_student_fields(self):
         invalid = {
@@ -227,7 +241,7 @@ class AllocationTests(TestCase):
             'email': ['', 'invalid', 'a@b', 'a b@example.org', 'a' * 255, None],
             'committed': [None, 1, 'yes'],
             'c_score': ['bad', -1, 101, True, None, Decimal('NaN'), float('inf'), Decimal('60.001'), Decimal('1e-1000000')],
-            'gender': ['woman', '1', None, -1, 4, True, 1.0], 'workload': ['high', None],
+            'gender': ['woman', '1', None, -1, 4, True, 1.0], 'workload': ['high', '1', None, -1, 4, True, 1.0],
             'ethnicity': ['asian', '1', None, -1, 6, False, 1.0],
         }
         for field, values in invalid.items():
