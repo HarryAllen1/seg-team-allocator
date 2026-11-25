@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from allocations.choices import Ethnicity, Gender
 from allocations.models import Team, User
 
 
@@ -55,25 +56,21 @@ class TeamModelTestCase(TestCase):
     def test_gender_accepts_only_defined_codes(self):
         user = create_test_user()
 
-        for gender in range(4):
+        for gender in Gender.values:
             user.gender = gender
-            user.ethnicity = 0
             user.full_clean()
 
-        user.gender = 4
-        user.ethnicity = 0
+        user.gender = max(Gender.values) + 1
         with self.assertRaises(ValidationError):
             user.full_clean()
 
     def test_ethnicity_accepts_only_defined_codes(self):
         user = create_test_user()
 
-        for ethnicity in range(6):
+        for ethnicity in Ethnicity.values:
             user.ethnicity = ethnicity
-            user.gender = 0
             user.full_clean()
 
-        user.ethnicity = 6
-        user.gender = 0
+        user.ethnicity = max(Ethnicity.values) + 1
         with self.assertRaises(ValidationError):
             user.full_clean()

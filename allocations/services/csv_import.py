@@ -41,8 +41,11 @@ ETHNICITY_COLUMN = 'ethnicity'
 C_SCORE_COLUMN = 'c-score'
 KNOWN_COLUMNS = REQUIRED_COLUMNS + (GENDER_COLUMN, ETHNICITY_COLUMN, C_SCORE_COLUMN)
 
-GENDER_CODES = dict(Gender.choices)
-ETHNICITY_CODES = dict(Ethnicity.choices)
+BLANK_VALUE_NOTES = {
+    GENDER_COLUMN: f'treated as {Gender.NOT_PROVIDED.value} ({Gender.NOT_PROVIDED.label.lower()})',
+    ETHNICITY_COLUMN: f'treated as {Ethnicity.NOT_PROVIDED.value} ({Ethnicity.NOT_PROVIDED.label.lower()})',
+    C_SCORE_COLUMN: 'left empty',
+}
 C_SCORE_MIN, C_SCORE_MAX = 0, 100
 # Limits of the User model: names are 50 characters, and the email is also used as the username (150).
 MAX_NAME_LENGTH = 50
@@ -70,8 +73,8 @@ class StudentRow:
     first_name: str
     last_name: str
     email: str
-    gender: int = 0
-    ethnicity: int = 0
+    gender: int = Gender.NOT_PROVIDED.value
+    ethnicity: int = Ethnicity.NOT_PROVIDED.value
     c_score: int | None = None
     extra: dict = field(default_factory=dict)
 
@@ -189,13 +192,9 @@ def _validate_header(header: list[str], result: ImportResult) -> list[str] | Non
     if not ok:
         return None
 
-    for optional, meaning in (
-        (GENDER_COLUMN, 'treated as 0 (not provided) for every student'),
-        (ETHNICITY_COLUMN, 'treated as 0 (not provided) for every student'),
-        (C_SCORE_COLUMN, 'left empty for every student'),
-    ):
+    for optional, meaning in BLANK_VALUE_NOTES.items():
         if optional not in columns:
-            result.warnings.append(ImportIssue(f"No '{optional}' column: {meaning}."))
+            result.warnings.append(ImportIssue(f"No '{optional}' column: {meaning} for every student."))
 
     result.extra_columns = [c for c in columns if c not in KNOWN_COLUMNS]
     return columns
@@ -240,8 +239,8 @@ def _validate_rows(data_rows: list[list[str]], first_row_number: int, columns: l
         if email and email != values['email']:
             lowered_emails += 1
 
-        gender = _code(values, GENDER_COLUMN, GENDER_CODES, row_number, result)
-        ethnicity = _code(values, ETHNICITY_COLUMN, ETHNICITY_CODES, row_number, result)
+        gender = _code(values, GENDER_COLUMN, Gender, row_number, result)
+        ethnicity = _code(values, ETHNICITY_COLUMN, Ethnicity, row_number, result)
         c_score = _c_score(values, row_number, result)
 
         if len(result.errors) > errors_before:
@@ -311,26 +310,18 @@ def _int_or_none(text: str) -> int | None:
     except ValueError:
         return None
 
-# Reads gender or ethnicity. Blank or missing gives 0.
-# Accepts a plain code ('2') or the labelled form ('2: Man'): only the number before the colon is used.
-# Errors if the number is not in the allowed set; returns 0 in that case.
-def _code(values: dict, column: str, allowed: dict[int, str], row: int, result: ImportResult) -> int:
-    """Read a coded column (gender, ethnicity). Missing/blank means 0.
-
-    Both a plain code ('2') and the brief's labelled form ('2: Man',
-    '5 : Other ethnic group (e.g. Arab)') are accepted: only the number before
-    the colon is used, and the label after it is ignored.
-    """
+def _code(values: dict, column: str, choices: type[Gender] | type[Ethnicity], row: int, result: ImportResult) -> int:
+    """Read a plain code or the numeric prefix of a labelled CSV cell."""
     text = values.get(column, '')
     if text == '':
-        return 0
+        return choices.NOT_PROVIDED.value
     number = _int_or_none(text.split(':', 1)[0].strip())
-    if number is None or number not in allowed:
-        valid = ', '.join(str(k) for k in allowed)
+    if number not in choices:
+        valid = ', '.join(str(code) for code in choices.values)
         result.errors.append(
             ImportIssue(f"'{text}' is not a valid {column} code. Allowed values: {valid}.", row=row, column=column)
         )
-        return 0
+        return choices.NOT_PROVIDED.value
     return number
 
 # Reads the c-score. Blank gives None. Errors if it is not a whole number (so 55.5 is rejected) or is outside 0-100.
@@ -360,11 +351,7 @@ def _summary_warnings(result: ImportResult, blank_lines: int, lowered_emails: in
         result.warnings.append(ImportIssue(f'{blank_lines} blank line(s) were skipped.'))
     if lowered_emails:
         result.warnings.append(ImportIssue(f'{lowered_emails} email address(es) were converted to lower case.'))
-    for column, label in (
-        (GENDER_COLUMN, 'treated as 0 (not provided)'),
-        (ETHNICITY_COLUMN, 'treated as 0 (not provided)'),
-        (C_SCORE_COLUMN, 'left empty'),
-    ):
+    for column, label in BLANK_VALUE_NOTES.items():
         count = blank_defaults.get(column, 0)
         if count:
             result.warnings.append(ImportIssue(f"{count} blank '{column}' value(s) were {label}."))

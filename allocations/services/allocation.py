@@ -155,7 +155,7 @@ def team_cost(team, options, cohort_gender_counts=None):
         if pairs:
             low += size * Fraction(sum(abs(a - b) for a, b in pairs), 2 * len(pairs))
     if options.use_ethnicity:
-        pairs = list(combinations([s.ethnicity for s in team if s.ethnicity], 2))
+        pairs = list(combinations([s.ethnicity for s in team if s.ethnicity != Ethnicity.NOT_PROVIDED], 2))
         if pairs:
             low += size * Fraction(sum(a == b for a, b in pairs), len(pairs))
     # the lower tier only decides between equal higher tier costs
@@ -166,7 +166,7 @@ def team_metrics(team, options, cohort_gender_counts=None):
     marks = [c_score(student) for student in team if student.c_score is not None]
     commitments = {student.committed for student in team}
     workloads = [student.workload for student in team if student.workload != Workload.NOT_PROVIDED]
-    ethnicities = [student.ethnicity for student in team if student.ethnicity]
+    ethnicities = [student.ethnicity for student in team if student.ethnicity != Ethnicity.NOT_PROVIDED]
     high, low = team_cost(team, options, cohort_gender_counts)
     return {
         'size': len(team),

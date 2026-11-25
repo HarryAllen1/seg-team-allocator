@@ -1,8 +1,10 @@
 from unittest import TestCase
 
+from allocations.choices import Gender
 from allocations.policies.gender import GenderPolicy
 
-W, M, NB, U = 1, 2, 3, 0
+W, M = Gender.WOMAN, Gender.MAN
+NB, U = Gender.OTHER_NON_BINARY, Gender.NOT_PROVIDED
 
 
 def person(name, gender):
@@ -50,6 +52,7 @@ class GenderPolicyTest(TestCase):
         self.assertEqual(len(result.violations), 1)
         self.assertEqual(result.violations[0].team_name, "Team E")
         self.assertIn("Sam", result.violations[0].message)
+        self.assertIn(Gender.OTHER_NON_BINARY.label, result.violations[0].message)
 
     def test_lone_non_binary_student_is_a_violation_when_others_exist(self):
         allocation = {

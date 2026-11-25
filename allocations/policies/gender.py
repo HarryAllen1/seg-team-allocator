@@ -1,10 +1,7 @@
 from collections import Counter
 
+from allocations.choices import Gender
 from allocations.policies.base import Policy, PolicyResult, Violation
-
-# Constants
-UNDISCLOSED = 0
-GENDER_LABELS = {1: "woman", 2: "man", 3: "non-binary student"}
 
 
 def describe_student(student):
@@ -17,12 +14,12 @@ def describe_student(student):
 
 def gender_of(student):
     """Return the student's gender code; a missing value counts as undisclosed."""
-    return student.get("gender", UNDISCLOSED)
+    return student.get("gender", Gender.NOT_PROVIDED)
 
 
 class GenderPolicy(Policy):
     """Avoids leaving a student as the only member of their disclosed gender in a team.
-    (Undisclosed gender (code 0) is ignored)
+    Undisclosed gender is ignored.
     """
 
     name = "Gender representation"
@@ -34,7 +31,7 @@ class GenderPolicy(Policy):
             gender_of(student)
             for students in allocation.values()
             for student in students
-            if gender_of(student) != UNDISCLOSED
+            if gender_of(student) != Gender.NOT_PROVIDED
         )
 
         for team_name, students in allocation.items():
@@ -45,7 +42,7 @@ class GenderPolicy(Policy):
 
     def team_violations(self, team_name, students, cohort_counts):
         """Return every gender violation in one team (there can be several)."""
-        disclosed = [s for s in students if gender_of(s) != UNDISCLOSED]
+        disclosed = [s for s in students if gender_of(s) != Gender.NOT_PROVIDED]
         team_counts = Counter(gender_of(s) for s in disclosed)
         is_diverse = len(team_counts) > 1
 
@@ -56,7 +53,9 @@ class GenderPolicy(Policy):
             if team_counts.get(gender) != 1:
                 continue
 
-            label = GENDER_LABELS.get(gender, "student of their gender")
+            label = "student of their gender"
+            if gender in Gender:
+                label = f"student who selected '{Gender(gender).label}'"
             name = describe_student(student)
 
             if team_counts.get(gender) == 1 and cohort_counts.get(gender) > 1:
