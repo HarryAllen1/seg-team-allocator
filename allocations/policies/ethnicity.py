@@ -1,6 +1,5 @@
 from allocations.policies.base import Policy, PolicyResult, Violation
 
-
 # Constants
 UNDISCLOSED = 0
 ETHNICITY_LABELS = {1: "Asian", 2: "Black", 3: "Mixed", 4: "White", 5: "Other"}
