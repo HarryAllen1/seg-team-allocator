@@ -84,7 +84,7 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for field_name in ('gender', 'ethnicity', 'c_score'):
+        for field_name in ('gender', 'ethnicity', 'c_score', 'workload'):
             self.fields[field_name].required = False
 
     def clean_gender(self):
@@ -98,6 +98,10 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
     def clean_c_score(self):
         return self.cleaned_data.get('c_score')
 
+    def clean_workload(self):
+        value = self.cleaned_data.get('workload')
+        return self.instance.workload if value is None else value
+
     class Meta:
         model = User
         fields: ClassVar[list[str]] = [
@@ -109,6 +113,8 @@ class UserUpdateForm(BootstrapFormMixin, forms.ModelForm):
             'gender',
             'ethnicity',
             'c_score',
+            'committed',
+            'workload',
         ]
 
 # Rejects a name that does not end in .csv and a file larger than 2 MB, with a readable message

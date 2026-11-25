@@ -22,6 +22,7 @@ class User(AbstractUser):
 
     Gender = choices.Gender
     Ethnicity = choices.Ethnicity
+    Workload = choices.Workload
 
     gender = models.PositiveSmallIntegerField(
         choices=Gender.choices,
@@ -38,6 +39,13 @@ class User(AbstractUser):
         blank=True,
         null=True,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+
+    committed = models.BooleanField(default=True)
+
+    workload = models.PositiveSmallIntegerField(
+        choices=Workload.choices,
+        default=Workload.NOT_PROVIDED,
     )
 
     class Meta:
