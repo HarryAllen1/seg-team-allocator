@@ -2,7 +2,6 @@ from unittest import TestCase
 
 from allocations.policies.gender import GenderPolicy
 
-
 W, M, NB, U = 1, 2, 3, 0
 
 

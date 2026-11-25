@@ -3,4 +3,5 @@
 {% block content %}
   <h1>Dashboard</h1>
   <p>Welcome, {{ user.first_name }}. You are logged in as {{ user.username }}.</p>
+  <a class="btn btn-primary" href="{% url 'export_allocation' %}">Export Allocation</a>
 {% endblock %}
