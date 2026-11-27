@@ -1,8 +1,9 @@
+from allocations.models import User
 from allocations.policies.base import Policy, PolicyResult, Violation
 
 # Constants
-UNDISCLOSED = 0
-ETHNICITY_LABELS = {1: "Asian", 2: "Black", 3: "Mixed", 4: "White", 5: "Other"}
+UNDISCLOSED = User.Ethnicity.NOT_PROVIDED
+ETHNICITY_LABELS = dict(User.Ethnicity.choices)
 
 
 def ethnicity_of(student):
